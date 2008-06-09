@@ -1,0 +1,87 @@
+== Fedex On Rails
+
+This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes and generating shipping labels.  Web Services is Fedex's new web service platform, which replaces Web Integration.  It is quite robust.  The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
+
+Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (RateService_v1.wsdl) and Ship (ShipService_v1.wsdl).  This plugin depends upon a development version of NaHi's[http://dev.ctor.org/soap4r/wiki/NaHi] excellent SOAP4R[http://dev.ctor.org/soap4r] library.  You can install the latest gem as follows:
+
+ $ gem install soap4r --source http://dev.ctor.org/download/
+
+Replace install with update if you've already installed SOAP4R.  Additional installation options are available on the SOAP4R site.  Any version after 1.5.8-RC2 will do.
+
+To install the plugin, extract the files from the archive to a directory named "fedex" in your vendors/plugin directory.  Place the WSDLs in vendors/plugin/lib/wsdl.  That's all there is to installation.  In the future we'll provide an SVN repository so you can
+ 
+ script/plugin install
+
+Using the plugin is straighforward:
+
+Start out by defining your constants.  To use Fedex Web Services you will need three pieces of information: Account Number, Authorization Key, and Meter Number.  You will receive all three when you create your developer account.  Place these anywhere you like, so long as they are accessible by your controller.  application.rb will do.
+
+ AUTH_KEY      = 'YOUR_AUTHORIZATION_KEY'
+ ACCOUNT       = 'YOUR_ACCOUNT_NUMBER'
+ METER         = 'YOUR_METER_NUMBER'
+
+Next, create your Fedex object.  In true Rails fashion, parameters are supplied as a hash:<p></p>
+
+ fedex         = Fedex::Base.new(:auth_key         => AUTH_KEY,
+                                 :account_number   => ACCOUNT,
+                                 :meter_number     => METER)
+
+The plugin has some basic minimum requirements checking built-in.  Leaving out one or more required pieces of information for any method will result in an exception being thrown:
+
+ > fedex = Fedex::Base.new
+ Fedex::MissingInformationError: Missing :auth_key, :account_number, :meter_number
+         from ./lib/fedex.rb:204:in `check_required_options'
+         from ./lib/fedex.rb:37:in `initialize'
+ 
+For the purpose of demonstration we're using the PDF label type, which is the default.  PDFs are nice because they'll print onto a regular 8.5"x11" sheet of paper exactly the way Fedex needs them.  Additional options for printing are available.  See Fedex::LabelSpecificationImageTypes for a list, which includes PNG and special formats designed for thermal printers.
+
+Now let's get a Rate quote.  Define your origin, destination, number of packages, total weight, and shipping method.
+
+ origin        = {:country     => 'US',
+                  :street      => '80 E. Rio Salado Pkwy. #711', # Off Madison Ave
+                  :city        => 'Tempe',
+                  :state       => 'AZ',
+                  :zip         => '85281'}
+
+ destination   = {:country     => 'US',
+                  :street      => '942 South Shady Grove Road',  # Fedex
+                  :city        => 'Memphis',
+                  :state       => 'TN',
+                  :zip         => '38120',
+                  :residential => false}
+
+ count         = 1
+ weight        = 10
+ service_type  = Fedex::ServiceTypes::STANDARD_OVERNIGHT
+ 
+
+Pass these to your Fedex object:
+
+ price         = fedex.price(:origin       => origin,
+                             :destination  => destination,
+                             :count        => count,
+                             :weight       => weight,
+                             :service_type => service_type)
+
+ > puts price
+ 8644
+
+Rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).  Shipping is just as easy.  Specify who's doing the sending and receiving:
+
+ shipper       = {:name => "Your Name",
+                  :phone_number => '5205551212'}
+ recipient     = {:name => "Fedex",
+                  :phone_number => '9013693600'}
+ 
+And off we go:
+
+ price, label, tracking_number  = fedex.label(:shipper       => {:contact => shipper,
+                                                                 :address => origin},
+                                              :recipient     => {:contact => recipient,
+                                                                 :address => destination},
+                                              :weight        => total_weight,
+                                              :service_type  => service_type)
+
+If everything goes well price, label, and tracking_number will all be populated accordingly.  label is the Base64-decoded label as returned from Fedex.  Store this in a :binary column in your database, or write it out to a file.
+
+That's it!  There are quite a few additional configuration options, but this should be enough to get you started.  If you encounter any bugs, please email me at josephj [at] offmadisonave [dot] com.  This plugin is made available under the MIT license.
