@@ -240,6 +240,7 @@ module Fedex #:nodoc:
       weight              = options[:weight]
       
       time                = options[:time] || Time.now
+      time                = time.to_time.iso8601 if time.is_a?(Time)
       
       residential         = recipient_address[:residential] ? recipient_address[:residential] : false
       
@@ -248,7 +249,10 @@ module Fedex #:nodoc:
       # Create the driver
       driver = create_driver(:ship)
       
-      result = driver.processShipment(common_options.merge(
+      result = driver.processShipment(
+        :WebAuthenticationDetail => { :UserCredential => { :Key => @auth_key, :Password => @security_code } },
+        :ClientDetail => { :AccountNumber => @account_number, :MeterNumber => @meter_number },
+        :Version => WS_VERSION.merge(:ServiceId => "crs"),
         :RequestedShipment => {
           :ShipTimestamp => time,
           :DropoffType => @dropoff_type,
@@ -298,18 +302,19 @@ module Fedex #:nodoc:
           :RateRequestTypes => @rate_request_type,
           :RequestedPackages => [ { :Weight => {:Units => @units, :Value => weight} } ]
         }
-      ))
+      )
       
       successful = successful?(result)
       
       if successful
         pre = result.completedShipmentDetail.shipmentRating.shipmentRateDetails
         charge = ((pre.class == Array ? pre[0].totalNetCharge.amount.to_f : pre.totalNetCharge.amount.to_f) * 100).to_i
-        label = Base64.decode64(result.completedShipmentDetail.completedPackageDetails.label)
+        label = Base64.decode64(result.completedShipmentDetail.completedPackageDetails.label.parts.image)
         tracking_number = result.completedShipmentDetail.completedPackageDetails.trackingId.trackingNumber
         [charge, label, tracking_number]
       else
-        raise FedexError.new("Unable to retrieve price from Fedex.")
+        msg = error_msg(result)
+        raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
       end
     end
     
