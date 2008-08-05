@@ -355,7 +355,7 @@ module Fedex #:nodoc:
       {
         :WebAuthenticationDetail => { :UserCredential => { :Key => @auth_key, :Password => @security_code } },
         :ClientDetail => { :AccountNumber => @account_number, :MeterNumber => @meter_number },
-        :Version => WS_VERSION
+        :Version => WS_VERSION.merge(:ServiceId => "crs")
       }
     end
   
@@ -402,7 +402,8 @@ module Fedex #:nodoc:
     # Returns the error message contained in the SOAP response, if one exists.
     def error_msg(result)
       return "" if successful?(result)
-      result.notifications.first.message
+      notes = result.notifications
+      notes.respond_to?(:message) ? notes.message : notes.first.message
     end
     
     # Attempts to determine the carrier code for a tracking number based upon its length.  Currently supports Fedex Ground and Fedex Express
