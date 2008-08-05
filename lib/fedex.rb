@@ -44,7 +44,7 @@ module Fedex #:nodoc:
     }
     
     # Defines the Web Services version implemented.
-    WS_VERSION = { :Major => 3, :Intermediate => 0, :Minor => 0 }
+    WS_VERSION = { :Major => 3, :Intermediate => 0, :Minor => 0, :ServiceId => 'crs' }
     
     SUCCESSFUL_RESPONSES = ['SUCCESS', 'WARNING', 'NOTE'] #:nodoc:
     
@@ -153,10 +153,7 @@ module Fedex #:nodoc:
       # Create the driver
       driver = create_driver(:price)
       
-      result = driver.getRate(
-        :WebAuthenticationDetail => { :UserCredential => { :Key => @auth_key, :Password => @security_code } },
-        :ClientDetail => { :AccountNumber => @account_number, :MeterNumber => @meter_number },
-        :Version => WS_VERSION.merge(:ServiceId => "crs"),
+      result = driver.getRate(common_options.merge(
         :Origin => {
           :CountryCode => origin[:country],
           :StreetLines => origin[:street],
@@ -180,13 +177,14 @@ module Fedex #:nodoc:
           :PieceCount => count,
           :TotalWeight => { :Units => @units, :Value => weight }
         }
-      )
+      ))
       
       successful = successful?(result)
       
       if successful
-        charge = ((result.ratedShipmentDetails.first.shipmentRateDetail.totalNetCharge.amount.to_f) * 100).to_i
-        charge
+        details = result.ratedShipmentDetails
+        detail = details.respond_to?(:shipmentRateDetail) ? details.shipmentRateDetail : details.first.shipmentRateDetail
+        (detail.totalNetCharge.amount.to_f * 100).to_i
       else
         msg = error_msg(result)
         raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
@@ -249,10 +247,7 @@ module Fedex #:nodoc:
       # Create the driver
       driver = create_driver(:ship)
       
-      result = driver.processShipment(
-        :WebAuthenticationDetail => { :UserCredential => { :Key => @auth_key, :Password => @security_code } },
-        :ClientDetail => { :AccountNumber => @account_number, :MeterNumber => @meter_number },
-        :Version => WS_VERSION.merge(:ServiceId => "crs"),
+      result = driver.processShipment(common_options.merge(
         :RequestedShipment => {
           :ShipTimestamp => time,
           :DropoffType => @dropoff_type,
@@ -302,7 +297,7 @@ module Fedex #:nodoc:
           :RateRequestTypes => @rate_request_type,
           :RequestedPackages => [ { :Weight => {:Units => @units, :Value => weight} } ]
         }
-      )
+      ))
       
       successful = successful?(result)
       
@@ -355,7 +350,7 @@ module Fedex #:nodoc:
       {
         :WebAuthenticationDetail => { :UserCredential => { :Key => @auth_key, :Password => @security_code } },
         :ClientDetail => { :AccountNumber => @account_number, :MeterNumber => @meter_number },
-        :Version => WS_VERSION.merge(:ServiceId => "crs")
+        :Version => WS_VERSION
       }
     end
   
