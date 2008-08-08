@@ -4,7 +4,7 @@
 
 This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes, generating shipping labels, and cancelling shipments.  Web Services is Fedex's new web service platform that replaces Web Integration.  It is quite robust.  The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
 
-This is a fork of Mighty Interactive's Fedex plugin that has been updated to be compatible with version 3 of the WSDLs that Fedex provides for integration purposes.
+This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.com/ruby-on-rails/fedex/] that has been updated to be compatible with version 3 of the WSDLs that Fedex provides for integration purposes.
 
 === Installation
 
