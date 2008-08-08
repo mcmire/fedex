@@ -38,9 +38,8 @@ module Fedex #:nodoc:
     
     # Defines the relative path to the WSDL files.  Defaults assume lib/wsdl under plugin directory.
     WSDL_PATHS = {
-      :price       => 'wsdl/RateService_v3.wsdl',
-      :ship        => 'wsdl/ShipService_v3.wsdl',
-      :ship_cancel => 'wsdl/CancelPackageService.wsdl'
+      :rate => 'wsdl/RateService_v3.wsdl',
+      :ship => 'wsdl/ShipService_v3.wsdl',
     }
     
     # Defines the Web Services version implemented.
@@ -151,7 +150,7 @@ module Fedex #:nodoc:
       service_type  = resolve_service_type(service_type, residential)
       
       # Create the driver
-      driver = create_driver(:price)
+      driver = create_driver(:rate)
       
       result = driver.getRate(common_options.merge(
         :Origin => {
@@ -309,37 +308,29 @@ module Fedex #:nodoc:
         [charge, label, tracking_number]
       else
         msg = error_msg(result)
-        raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
+        raise FedexError.new("Unable to get label from Fedex: #{msg}")
       end
     end
     
     # Cancel a shipment
     #
     #  fedex = Fedex::Base.new(options)
-    #  result = fedex.cancel(fields)
+    #  result = fedex.cancel(options)
     #
     # Returns a boolean indicating whether or not the operation was successful
     #
     # === Required options for cancel
     #   :tracking_number - The Fedex-provided tracking number you wish to cancel
-    #
-    # === Optional options for cancel
-    #   :carrier_code    - The four-letter abbreviation for the Fedex service used for the shipment to be canceled.
-    #                      Plugin handles Ground and Express shipments automatically based on tracking number length.
     def cancel(options = {})
       check_required_options(:ship_cancel, options)
       
       tracking_number = options[:tracking_number]
-      carrier_code    = options[:carrier_code] || carrier_code_for_tracking_number(tracking_number)
       
-      driver = create_driver(:ship_cancel)
+      driver = create_driver(:ship)
       
-      result = driver.cancelPackage(
-        :CancelPackageRequest => common_options.merge(
-          :CarrierCode => carrier_code,
-          :TrackingNumber => tracking_number
-        )
-      )
+      result = driver.deleteShipment(common_options.merge(
+        :TrackingNumber => tracking_number
+      ))
 
       return successful?(result)
     end
