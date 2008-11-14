@@ -29,7 +29,7 @@ module Fedex #:nodoc:
     # Defines the required parameters for various methods
     REQUIRED_OPTIONS = {
       :base        => [ :auth_key, :security_code, :account_number, :meter_number ],
-      :price       => [ :origin, :destination, :service_type, :count, :weight ],
+      :price       => [ :shipper, :recipient, :weight, :service_type ],
       :label       => [ :shipper, :recipient, :weight, :service_type ],
       :contact     => [ :name, :phone_number ],
       :address     => [ :country, :street, :city, :state, :zip ],
@@ -38,12 +38,12 @@ module Fedex #:nodoc:
     
     # Defines the relative path to the WSDL files.  Defaults assume lib/wsdl under plugin directory.
     WSDL_PATHS = {
-      :rate => 'wsdl/RateService_v3.wsdl',
-      :ship => 'wsdl/ShipService_v3.wsdl',
+      :rate => 'wsdl/RateService_v5.wsdl',
+      :ship => 'wsdl/ShipService_v5.wsdl',
     }
     
     # Defines the Web Services version implemented.
-    WS_VERSION = { :Major => 3, :Intermediate => 0, :Minor => 0, :ServiceId => 'crs' }
+    WS_VERSION = { :Major => 5, :Intermediate => 0, :Minor => 0, :ServiceId => 'crs' }
     
     SUCCESSFUL_RESPONSES = ['SUCCESS', 'WARNING', 'NOTE'] #:nodoc:
     
@@ -101,7 +101,7 @@ module Fedex #:nodoc:
       @label_type         = options[:label_type]        || LabelFormatTypes::COMMON2D
       @label_image_type   = options[:label_image_type]  || LabelSpecificationImageTypes::PDF
       @rate_request_type  = options[:rate_request_type] || RateRequestTypes::ACCOUNT
-      @payment            = options[:payment]           || PaymentTypes::SENDER
+      @payment_type       = options[:payment]           || PaymentTypes::SENDER
       @units              = options[:units]             || WeightUnits::LB
       @currency           = options[:currency]          || CurrencyTypes::USD
       @debug              = options[:debug]             || false
@@ -116,14 +116,16 @@ module Fedex #:nodoc:
     #  8642
     #
     # === Required options for price
-    #   :origin       - Origin address.  (See below.)
-    #   :destination  - Destination address. (See below.)
-    #   :service_type - One of Fedex::ServiceTypes
-    #   :count        - The number of packages in your shipment.
-    #   :weight       - The total weight of your shipment.
+    #   :shipper              - A hash containing contact information and an address for the shipper.  (See below.)
+    #   :recipient            - A hash containing contact information and an address for the recipient.  (See below.)
+    #   :weight               - The total weight of the shipped package.
+    #   :service_type         - One of Fedex::ServiceTypes
     #
-    # === Addresses
-    # Addresses are supplied to the system as a hash as follows
+    # === Optional options
+    #   :count                - How many packages are in the shipment. Defaults to 1.
+    #
+    # === Address format
+    # The 'shipper' and 'recipient' address values should be hashes. Like this:
     #
     #  address = {:country => 'US',
     #             :street => '1600 Pennsylvania Avenue NW'
@@ -135,53 +137,87 @@ module Fedex #:nodoc:
       check_required_options(:price, options)
       
       # Check Address Options
-      check_required_options(:address, options[:origin])
-      check_required_options(:address, options[:destination])
+      check_required_options(:contact, options[:shipper][:contact])
+      check_required_options(:address, options[:shipper][:address])
+      
+      # Check Contact Options
+      check_required_options(:contact, options[:recipient][:contact])
+      check_required_options(:address, options[:recipient][:address])
             
       # Prepare variables
-      origin        = options[:origin]
-      destination   = options[:destination]
-      service_type  = options[:service_type]
-      count         = options[:count]
-      weight        = options[:weight]
+      shipper             = options[:shipper]
+      recipient           = options[:recipient]
       
-      residential   = destination[:residential] ? destination[:residential] : false
+      shipper_contact     = shipper[:contact]
+      shipper_address     = shipper[:address]
       
-      service_type  = resolve_service_type(service_type, residential)
+      recipient_contact   = recipient[:contact]
+      recipient_address   = recipient[:address]
+      
+      service_type        = options[:service_type]
+      count               = options[:count] || 1
+      weight              = options[:weight]
+                          
+      residential         = !!recipient_address[:residential]
+                          
+      service_type        = resolve_service_type(service_type, residential)
       
       # Create the driver
       driver = create_driver(:rate)
       
-      result = driver.getRate(common_options.merge(
-        :Origin => {
-          :CountryCode => origin[:country],
-          :StreetLines => origin[:street],
-          :City => origin[:city],
-          :StateOrProvinceCode => origin[:state],
-          :PostalCode => origin[:zip]
-        },
-        :Destination => {
-          :CountryCode => destination[:country],
-          :StreetLines => destination[:street],
-          :City => destination[:city],
-          :StateOrProvinceCode => destination[:state],
-          :PostalCode => destination[:zip],
-          :Residential => residential
-        },
-        :DropoffType => @dropoff_type,
-        :ServiceType => service_type,
-        :PackagingType => @packaging_type,
-        :Payment => @payment,
-        :RateRequestPackageSummary => {
-          :PieceCount => count,
-          :TotalWeight => { :Units => @units, :Value => weight }
+      result = driver.getRates(common_options.merge(
+        :RequestedShipment => {
+          :Shipper => {
+            :Contact => {
+              :PersonName => shipper_contact[:name],
+              :PhoneNumber => shipper_contact[:phone_number]
+            },
+            :Address => {
+              :CountryCode => shipper_address[:country],
+              :StreetLines => shipper_address[:street],
+              :City => shipper_address[:city],
+              :StateOrProvinceCode => shipper_address[:state],
+              :PostalCode => shipper_address[:zip]
+            }
+          },
+          :Recipient => {
+            :Contact => {
+              :PersonName => recipient_contact[:name],
+              :PhoneNumber => recipient_contact[:phone_number]
+            },
+            :Address => {
+              :CountryCode => recipient_address[:country],
+              :StreetLines => recipient_address[:street],
+              :City => recipient_address[:city],
+              :StateOrProvinceCode => recipient_address[:state],
+              :PostalCode => recipient_address[:zip],
+              :Residential => residential
+            }
+          },
+          :ShippingChargesPayment => {
+            :PaymentType => @payment_type,
+            :Payor => {
+              :AccountNumber => @account_number,
+              :CountryCode => shipper_address[:country]
+            }
+          },
+          :PackageCount => count,
+          :DropoffType => @dropoff_type,
+          :ServiceType => service_type,
+          :PackagingType => @packaging_type,
+          :PackageDetail => RequestedPackageDetailTypes::INDIVIDUAL_PACKAGES,
+          :TotalWeight => { :Units => @units, :Value => weight },
+          :RequestedPackages => [
+            :SequenceNumber => 1,
+            :Weight => { :Units => @units, :Value => weight }
+          ]
         }
       ))
       
       successful = successful?(result)
       
       if successful
-        details = result.ratedShipmentDetails
+        details = result.rateReplyDetails.ratedShipmentDetails
         detail = details.respond_to?(:shipmentRateDetail) ? details.shipmentRateDetail : details.first.shipmentRateDetail
         (detail.totalNetCharge.amount.to_f * 100).to_i
       else
@@ -204,8 +240,8 @@ module Fedex #:nodoc:
     #   :weight       - The total weight of the shipped package.
     #   :service_type - One of Fedex::ServiceTypes
     #
-    # === :shipper and :recipient
-    # Shipper and recipient should be as a hash with two keys as follows:
+    # === Address format
+    # The 'shipper' and 'recipient' address values should be hashes. Like this:
     #
     #  shipper = {:contact => {:name => 'John Doe',
     #                          :phone_number => '4805551212'},
@@ -239,7 +275,7 @@ module Fedex #:nodoc:
       time                = options[:time] || Time.now
       time                = time.to_time.iso8601 if time.is_a?(Time)
       
-      residential         = recipient_address[:residential] ? recipient_address[:residential] : false
+      residential         = !!recipient_address[:residential]
       
       service_type        = resolve_service_type(service_type, residential)
       
@@ -283,7 +319,7 @@ module Fedex #:nodoc:
           },
           :Origin => {},
           :ShippingChargesPayment => {
-            :PaymentType => @payment,
+            :PaymentType => @payment_type,
             :Payor => {
               :AccountNumber => @account_number,
               :CountryCode => shipper_address[:country]
@@ -401,95 +437,6 @@ module Fedex #:nodoc:
         'FDXG'
       end
     end
-  end
-  
-  # The following modules were created by running wsdl2ruby.rb on the various WSDLs and pulling out the appropriate data.
-  # These are provided primarily for convenience.
-  module ServiceTypes
-    EUROPE_FIRST_INTERNATIONAL_PRIORITY   = "EUROPE_FIRST_INTERNATIONAL_PRIORITY"
-    FEDEX_1_DAY_FREIGHT                   = "FEDEX_1_DAY_FREIGHT"
-    FEDEX_2_DAY                           = "FEDEX_2_DAY"
-    FEDEX_2_DAY_FREIGHT                   = "FEDEX_2_DAY_FREIGHT"
-    FEDEX_3_DAY_FREIGHT                   = "FEDEX_3_DAY_FREIGHT"
-    FEDEX_EXPRESS_SAVER                   = "FEDEX_EXPRESS_SAVER"
-    FEDEX_GROUND                          = "FEDEX_GROUND"
-    FIRST_OVERNIGHT                       = "FIRST_OVERNIGHT"
-    GROUND_HOME_DELIVERY                  = "GROUND_HOME_DELIVERY"
-    INTERNATIONAL_DISTRIBUTION_FREIGHT    = "INTERNATIONAL_DISTRIBUTION_FREIGHT"
-    INTERNATIONAL_ECONOMY                 = "INTERNATIONAL_ECONOMY"
-    INTERNATIONAL_ECONOMY_DISTRIBUTION    = "INTERNATIONAL_ECONOMY_DISTRIBUTION"
-    INTERNATIONAL_ECONOMY_FREIGHT         = "INTERNATIONAL_ECONOMY_FREIGHT"
-    INTERNATIONAL_FIRST                   = "INTERNATIONAL_FIRST"
-    INTERNATIONAL_PRIORITY                = "INTERNATIONAL_PRIORITY"
-    INTERNATIONAL_PRIORITY_DISTRIBUTION   = "INTERNATIONAL_PRIORITY_DISTRIBUTION"
-    INTERNATIONAL_PRIORITY_FREIGHT        = "INTERNATIONAL_PRIORITY_FREIGHT"
-    PRIORITY_OVERNIGHT                    = "PRIORITY_OVERNIGHT"
-    STANDARD_OVERNIGHT                    = "STANDARD_OVERNIGHT"
-  end
-  
-  module PackagingTypes
-    FEDEX_10KG_BOX                        = "FEDEX_10KG_BOX"
-    FEDEX_25KG_BOX                        = "FEDEX_25KG_BOX"
-    FEDEX_BOX                             = "FEDEX_BOX"
-    FEDEX_ENVELOPE                        = "FEDEX_ENVELOPE"
-    FEDEX_PAK                             = "FEDEX_PAK"
-    FEDEX_TUBE                            = "FEDEX_TUBE"
-    YOUR_PACKAGING                        = "YOUR_PACKAGING"
-  end
-    
-  module DropoffTypes
-    BUSINESS_SERVICE_CENTER               = "BUSINESS_SERVICE_CENTER"
-    DROP_BOX                              = "DROP_BOX"
-    REGULAR_PICKUP                        = "REGULAR_PICKUP"
-    REQUEST_COURIER                       = "REQUEST_COURIER"
-    STATION                               = "STATION"
-  end
-  
-  module PaymentTypes
-    RECIPIENT                             = "RECIPIENT"
-    SENDER                                = "SENDER"
-    THIRD_PARTY                           = "THIRD_PARTY"
-  end
-  
-  module RateRequestTypes
-    ACCOUNT                               = "ACCOUNT"
-    LIST                                  = "LIST"
-  end
-  
-  module WeightUnits
-    KG                                    = "KG"
-    LB                                    = "LB"
-  end
-  
-  module LinearUnits
-    CM                                    = "CM"
-    IN                                    = "IN"
-  end
-  
-  module CurrencyTypes
-    USD                                   = "USD"
-  end
-  
-  module LabelFormatTypes
-    COMMON2D                              = "COMMON2D"
-    LABEL_DATA_ONLY                       = "LABEL_DATA_ONLY"
-  end
-  
-  module LabelSpecificationImageTypes
-    DPL                                   = "DPL"
-    EPL2                                  = "EPL2"
-    PDF                                   = "PDF"
-    PNG                                   = "PNG"
-    ZPLII                                 = "ZPLII"
-  end
-  
-  module LabelStockTypes
-    PAPER_4X6                             = "PAPER_4X6"
-    PAPER_7X475                           = "PAPER_7X475"
-    STOCK_4X6                             = "STOCK_4X6"
-    STOCK_4X675_LEADING_DOC_TAB           = "STOCK_4X675_LEADING_DOC_TAB"
-    STOCK_4X8                             = "STOCK_4X8"
-    STOCK_4X9_LEADING_DOC_TAB             = "STOCK_4X9_LEADING_DOC_TAB"
   end
   
 end

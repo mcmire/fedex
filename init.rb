@@ -20,10 +20,10 @@
 
 $:.unshift(File.dirname(__FILE__))
 
-#require 'rubygems'
-#require 'soap4r'
-
 require 'soap/wsdlDriver'
 require 'cgi'
 require 'base64'
+
+require 'lib/rate_constants'
+require 'lib/ship_constants'
 require 'lib/fedex'
