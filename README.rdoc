@@ -51,6 +51,12 @@ For the purpose of demonstration we're using the PDF label type, which is the de
 
 Now let's get a Rate quote.  Define your origin, destination, number of packages, total weight, and shipping method.
 
+ shipper       = {:name => "Your Name",
+                  :phone_number => '5205551212'}
+
+ recipient     = {:name => "Fedex",
+                  :phone_number => '9013693600'}
+
  origin        = {:country     => 'US',
                   :street      => '80 E. Rio Salado Pkwy. #711', # Off Madison Ave
                   :city        => 'Tempe',
@@ -64,39 +70,32 @@ Now let's get a Rate quote.  Define your origin, destination, number of packages
                   :zip         => '38120',
                   :residential => false}
 
- count         = 1
+ pkg_count     = 1
  weight        = 10
  service_type  = Fedex::ServiceTypes::STANDARD_OVERNIGHT
- 
 
 Pass these to your Fedex object:
 
- price         = fedex.price(:origin       => origin,
-                             :destination  => destination,
-                             :count        => count,
-                             :weight       => weight,
-                             :service_type => service_type)
+ price = fedex.price(:shipper      => {:contact=>shipper,   :address=>origin},
+                     :recipient    => {:contact=>recipient, :address=>destination},
+                     :count        => pkg_count,
+                     :weight       => weight,
+                     :service_type => service_type)
 
  > puts price
  8644
 
-Rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).  Shipping is just as easy.  Specify who's doing the sending and receiving:
+Rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).  
 
- shipper       = {:name => "Your Name",
-                  :phone_number => '5205551212'}
- recipient     = {:name => "Fedex",
-                  :phone_number => '9013693600'}
+Shipping is just as easy:
  
-And off we go:
+ price, label, tracking_number = fedex.label(:shipper      => {:contact=>shipper,   :address=>origin},
+                                             :recipient    => {:contact=>recipient, :address=>destination},
+                                             :count        => pkg_count,
+                                             :weight       => weight,
+                                             :service_type => service_type)
 
- price, label, tracking_number  = fedex.label(:shipper       => {:contact => shipper,
-                                                                 :address => origin},
-                                              :recipient     => {:contact => recipient,
-                                                                 :address => destination},
-                                              :weight        => total_weight,
-                                              :service_type  => service_type)
-
-If everything goes well price, label, and tracking_number will all be populated accordingly.  label is the Base64-decoded label as returned from Fedex.  Store this in a :binary column in your database, or write it out to a file.
+If everything goes well price, label, and tracking_number will all be populated accordingly.  label is the Base64-decoded label as returned from Fedex.  By default the FedEx Plugin requests the label to be returned as a PDF file suitable for Laser Printing.  Store this in a :binary column in your database, or write it out to a file.
 
 That's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.  If you encounter any bugs, please email me at josephj [at] offmadisonave [dot] com.
 
@@ -104,6 +103,7 @@ That's it!  There are quite a few additional configuration options which you can
 
 Joseph Jamarillo, josephj [at] offmadisonave [dot] com
 Elliot Winkler, elliot.winkler [at] gmail [dot] com (fork for v3 compatibility)
+Laurence A. Lee, lalee [at] pobox [dot] com (additional fixes for v5 compatibility)
 
 === Copyright/License
 
