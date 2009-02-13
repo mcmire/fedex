@@ -2,9 +2,9 @@
 
 === Description
 
-This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes, generating shipping labels, and cancelling shipments.  Web Services is Fedex's new web service platform that replaces Web Integration.  It is quite robust.  The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
+This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes, generating shipping labels, and cancelling shipments.  Web Services is Fedex's new web service platform that replaces Web Integration. It is quite robust. The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
 
-This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.com/ruby-on-rails/fedex/] that has been updated to be compatible with version 3 of the WSDLs that Fedex provides for integration purposes.
+This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.com/ruby-on-rails/fedex/] that has been updated to be compatible with the latest version (v5 as of 2/13/2009) of the Fedex API.
 
 === Installation
 
@@ -12,26 +12,26 @@ This plugin depends upon NaHi's[http://dev.ctor.org/soap4r/wiki/NaHi] excellent 
 
  $ gem install soap4r --source http://dev.ctor.org/download/
 
-Replace install with update if you've already installed SOAP4R.  Additional installation options are available on the SOAP4R site.  Any version after 1.5.8-RC2 will do.
+Replace +install+ with +update+ if you've already installed SOAP4R.  Additional installation options are available on the SOAP4R site. Any version after 1.5.8-RC2 will do.
 
-To install the plugin itself, simply run:
+To install the plugin itself, simply navigate to your project directory and run:
 
   ./script/plugin install git://github.com/mcmire/fedex.git
 
-Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (RateService_v3.wsdl at the time of this writing) and Ship (ShipService_v3.wsdl at the time of this writing). Download these WSDLs and put them in vendor/plugins/fedex/lib/wsdl/ directory
+Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v5.wsdl</tt> as of 2/13/2009) and Ship (<tt>ShipService_v5.wsdl</tt> as of 2/13/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
 
 === Usage
 
 Using the plugin is straightforward:
 
-Start out by defining constants to hold the authentication parameters.  To use Fedex Web Services you will need four pieces of information: Account Number, Authorization Key, Security Code, and Meter Number.  You will receive all four when you create your developer account. An ideal place to put these constants is environment.rb.
+Start out by defining constants to hold the authentication parameters.  To use Fedex Web Services you will need four pieces of information: Account Number, Authorization Key, Security Code, and Meter Number.  You will receive all four when you create your developer account. An ideal place to put these constants is in an initializer under <tt>config/initializers</tt>.
 
   AUTH_KEY      = 'YOUR_AUTHORIZATION_KEY'
   SECURITY_CODE = 'YOUR_SECURITY_CODE'
   ACCOUNT       = 'YOUR_ACCOUNT_NUMBER'
   METER_NUMBER  = 'YOUR_METER_NUMBER'
 
-Next, create your Fedex object.  In true Rails fashion, parameters are supplied as a hash:
+Before you can get a rate or create a label, you must first create a Fedex object. Here you pass in the constants you just created, along with any other options that apply (see <tt>lib/fedex.rb</tt>).
 
   fedex = Fedex::Base.new(
     :auth_key => AUTH_KEY,
@@ -40,14 +40,14 @@ Next, create your Fedex object.  In true Rails fashion, parameters are supplied 
     :meter_number => METER_NUMBER
   )
 
-The plugin has some basic minimum requirement-checking built in.  Leaving out one or more required pieces of information for any method will result in an exception being thrown:
+Note that leaving out one or more required pieces of information for any method will result in an exception being thrown:
 
  > fedex = Fedex::Base.new
  Fedex::MissingInformationError: Missing :auth_key, :security_code, :account_number, :meter_number
          from ./lib/fedex.rb:204:in `check_required_options'
          from ./lib/fedex.rb:37:in `initialize'
  
-For the purpose of demonstration we're using the PDF label type, which is the default.  PDFs are nice because they'll print onto a regular 8.5"x11" sheet of paper exactly the way Fedex needs them.  Additional options for printing are available.  See Fedex::LabelSpecificationImageTypes for a list, which includes PNG and special formats designed for thermal printers.
+For the purpose of demonstration we're using the PDF label type, which is the default.  PDFs are nice because they'll print onto a regular 8.5"x11" sheet of paper exactly the way Fedex needs them.  Additional options for printing are available.  See <tt>Fedex::LabelSpecificationImageTypes</tt> (defined in <tt>lib/{rate|ship}_constants.rb</tt>) for a list, which includes PNG and special formats designed for thermal printers.
 
 Now let's get a Rate quote.  Define your origin, destination, number of packages, total weight, and shipping method.
 
@@ -85,7 +85,7 @@ Pass these to your Fedex object:
  > puts price
  8644
 
-Rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).  
+Note that rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).
 
 Shipping is just as easy:
  
@@ -95,15 +95,15 @@ Shipping is just as easy:
                                              :weight       => weight,
                                              :service_type => service_type)
 
-If everything goes well price, label, and tracking_number will all be populated accordingly.  label is the Base64-decoded label as returned from Fedex.  By default the FedEx Plugin requests the label to be returned as a PDF file suitable for Laser Printing.  Store this in a :binary column in your database, or write it out to a file.
+If everything goes well, +price+, +label+, and +tracking_number+ will all be populated accordingly.  +label+ is the Base64-decoded label as returned from Fedex.  By default the Fedex plugin requests the label to be returned as a PDF file suitable for laser printing.  Store this in a <tt>:binary</tt> column in your database, or write it out to a file.
 
-That's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.  If you encounter any bugs, please email me at josephj [at] offmadisonave [dot] com.
+And that's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.  If you encounter any bugs, please email me at elliot.winkler [at] gmail [dot] com.
 
-=== Author
+=== Author/Contributors
 
-Joseph Jamarillo, josephj [at] offmadisonave [dot] com
-Elliot Winkler, elliot.winkler [at] gmail [dot] com (fork for v3 compatibility)
-Laurence A. Lee, lalee [at] pobox [dot] com (additional fixes for v5 compatibility)
+* Joseph Jamarillo, josephj [at] offmadisonave [dot] com (original author)
+* Elliot Winkler, elliot.winkler [at] gmail [dot] com (fork for v5 compatibility)
+* Laurence A. Lee, lalee [at] pobox [dot] com (additional fixes for v5 compatibility)
 
 === Copyright/License
 
