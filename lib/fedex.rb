@@ -276,6 +276,7 @@ module Fedex #:nodoc:
       recipient_address   = recipient[:address]
       
       service_type        = options[:service_type]
+      count               = options[:count] || 1
       weight              = options[:weight]
       
       time                = options[:time] || Time.now
@@ -336,7 +337,8 @@ module Fedex #:nodoc:
             :ImageType => @label_image_type
           },
           :RateRequestTypes => @rate_request_type,
-          :RequestedPackages => [ { :Weight => {:Units => @units, :Value => weight} } ]
+          :PackageCount => count,
+          :RequestedPackages => [ {:SequenceNumber=>1, :Weight => {:Units => @units, :Value => weight} } ]
         }
       ))
       
