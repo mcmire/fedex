@@ -100,7 +100,7 @@ module Fedex #:nodoc:
       @packaging_type     = options[:packaging_type]    || PackagingTypes::YOUR_PACKAGING
       @label_type         = options[:label_type]        || LabelFormatTypes::COMMON2D
       @label_image_type   = options[:label_image_type]  || LabelSpecificationImageTypes::PDF
-      @rate_request_type  = options[:rate_request_type] || RateRequestTypes::ACCOUNT
+      @rate_request_type  = options[:rate_request_type] || RateRequestTypes::LIST
       @payment_type       = options[:payment]           || PaymentTypes::SENDER
       @units              = options[:units]             || WeightUnits::LB
       @currency           = options[:currency]          || CurrencyTypes::USD
@@ -201,6 +201,7 @@ module Fedex #:nodoc:
               :CountryCode => shipper_address[:country]
             }
           },
+          :RateRequestTypes => @rate_request_type,
           :PackageCount => count,
           :DropoffType => @dropoff_type,
           :ServiceType => service_type,
@@ -217,9 +218,14 @@ module Fedex #:nodoc:
       successful = successful?(result)
       
       if successful
-        details = result.rateReplyDetails.ratedShipmentDetails
-        detail = details.respond_to?(:shipmentRateDetail) ? details.shipmentRateDetail : details.first.shipmentRateDetail
-        (detail.totalNetCharge.amount.to_f * 100).to_i
+        shipment_details = result.rateReplyDetails.ratedShipmentDetails
+        for shipment_detail in shipment_details
+          rate_detail = shipment_detail.shipmentRateDetail
+          if rate_detail.rateType == "PAYOR_#{@rate_request_type}"
+            return (rate_detail.totalNetCharge.amount.to_f * 100).to_i
+          end
+        end
+        raise "Couldn't find Fedex price in response!"
       else
         msg = error_msg(result)
         raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
