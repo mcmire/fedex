@@ -29,7 +29,7 @@ module Fedex #:nodoc:
     # Defines the required parameters for various methods
     REQUIRED_OPTIONS = {
       :base        => [ :auth_key, :security_code, :account_number, :meter_number ],
-      :price       => [ :shipper, :recipient, :weight, :service_type ],
+      :price       => [ :shipper, :recipient, :weight ],
       :label       => [ :shipper, :recipient, :weight, :service_type ],
       :contact     => [ :name, :phone_number ],
       :address     => [ :country, :street, :city, :state, :zip ],
@@ -109,29 +109,44 @@ module Fedex #:nodoc:
     
     # Gets a rate quote from Fedex.
     #
-    #  > fedex = Fedex::Base.new(options)
-    #  > price = fedex.price(fields)
-    # 
-    #  > price
-    #  8642
+    #   fedex = Fedex::Base.new(options)
+    #   
+    #   single_price = fedex.price(
+    #     :shipper => { ... },
+    #     :recipient => { ... },
+    #     :weight => 1,
+    #     :service_type => 'STANDARD_OVERNIGHT'
+    #   }
+    #   single_price #=> 1315
+    #
+    #   multiple_prices = fedex.price(
+    #     :shipper => { ... },
+    #     :recipient => { ... },
+    #     :weight => 1
+    #   )
+    #   multiple_prices #=> { 'STANDARD_OVERNIGHT' => 1315, 'PRIORITY_OVERNIGHT' => 2342, ... }
     #
     # === Required options for price
     #   :shipper              - A hash containing contact information and an address for the shipper.  (See below.)
     #   :recipient            - A hash containing contact information and an address for the recipient.  (See below.)
     #   :weight               - The total weight of the shipped package.
-    #   :service_type         - One of Fedex::ServiceTypes
     #
     # === Optional options
     #   :count                - How many packages are in the shipment. Defaults to 1.
+    #   :service_type         - One of Fedex::ServiceTypes. If not specified, Fedex gives you rates for all
+    #                           of the available service types (and you will receive a hash of prices instead of a
+    #                           single price).
     #
     # === Address format
     # The 'shipper' and 'recipient' address values should be hashes. Like this:
     #
-    #  address = {:country => 'US',
-    #             :street => '1600 Pennsylvania Avenue NW'
-    #             :state => 'DC',
-    #             :city => 'Washington',
-    #             :zip => '20500'}
+    #  address = {
+    #    :country => 'US',
+    #    :street => '1600 Pennsylvania Avenue NW'
+    #    :city => 'Washington',
+    #    :state => 'DC',
+    #    :zip => '20500'
+    #  }
     def price(options = {})
       # Check overall options
       check_required_options(:price, options)
@@ -160,7 +175,7 @@ module Fedex #:nodoc:
                           
       residential         = !!recipient_address[:residential]
                           
-      service_type        = resolve_service_type(service_type, residential)
+      service_type        = resolve_service_type(service_type, residential) if service_type
       
       # Create the driver
       driver = create_driver(:rate)
@@ -215,17 +230,31 @@ module Fedex #:nodoc:
         }
       ))
       
-      successful = successful?(result)
-      
-      if successful
-        shipment_details = result.rateReplyDetails.ratedShipmentDetails
+      extract_price = proc do |reply_detail|
+        shipment_details = reply_detail.ratedShipmentDetails
+        price = nil
         for shipment_detail in shipment_details
           rate_detail = shipment_detail.shipmentRateDetail
           if rate_detail.rateType == "PAYOR_#{@rate_request_type}"
-            return (rate_detail.totalNetCharge.amount.to_f * 100).to_i
+            price = (rate_detail.totalNetCharge.amount.to_f * 100).to_i
+            break
           end
         end
-        raise "Couldn't find Fedex price in response!"
+        if price
+          return price
+        else
+          raise "Couldn't find Fedex price in response!"
+        end
+      end
+      
+      if successful?(result)
+        reply_details = result.rateReplyDetails
+        if reply_details.respond_to?(:ratedShipmentDetails)
+          price = extract_price.call(reply_details)
+          service_type ? price : { reply_details.serviceType => price }
+        else
+          reply_details.inject({}) {|h,r| h[r.serviceType] = extract_price.call(r); h }
+        end
       else
         msg = error_msg(result)
         raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
