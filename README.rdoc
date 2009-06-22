@@ -1,6 +1,6 @@
-== Fedex On Rails
+= fedex
 
-=== Description
+== Description
 
 This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes, generating shipping labels, and cancelling shipments.  Web Services is Fedex's new web service platform that replaces Web Integration. It is quite robust. The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
 
@@ -26,7 +26,7 @@ To install the plugin itself, simply navigate to your project directory and run:
 
 Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account, head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v5.wsdl</tt> as of 2/13/2009) and Ship (<tt>ShipService_v5.wsdl</tt> as of 2/13/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
 
-=== Usage
+== Usage
 
 Using the plugin is straightforward:
 
@@ -111,17 +111,21 @@ If everything goes well, +price+, +label+, and +tracking_number+ will all be pop
 
 And that's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.
 
-=== Support
+== Support
 
-I (Elliot) use this plugin at work and right now we are only using the 'price' feature of this plugin. However, I realize that other people may be using the other features. If you encounter any bugs while using this, I am happy to fix the plugin for you; however, I rely on you to give me as much information as possible to do so. You can report an issue using the 'Issues' tab in Github[http://github.com/mcmire/fedex]. Or if you feel like making a patch yourself, great -- just send me a pull request and I'll incorporate it. You can also send me an email at elliot.winkler [at] gmail [dot] com.
+I (Elliot) use this plugin at work and right now we are only using the 'price' feature of this plugin. However, I realize that other people may be using the other features. If you encounter any bugs while using this, I am happy to fix the plugin for you; however, I rely on you to give me as much information as possible to do so. You can help me by:
 
-=== Author/Contributors
+* going to the 'Issues' tab in Github[http://github.com/mcmire/fedex] and adding an issue
+* creating the patch yourself and sending me a pull request
+* sending me an email (elliot.winkler [at] gmail [dot] com)
+
+== Author/Contributors
 
 * Joseph Jamarillo, josephj [at] offmadisonave [dot] com (original author)
 * Elliot Winkler, elliot.winkler [at] gmail [dot] com (fork for v5 compatibility)
 * Laurence A. Lee, lalee [at] pobox [dot] com (additional fixes for v5 compatibility)
 
-=== Copyright/License
+== Copyright/License
 
 Copyright (c) 2007 Joseph Jaramillo
 
