@@ -247,7 +247,8 @@ module Fedex #:nodoc:
         end
       end
       
-      if successful?(result)
+      msg = error_msg(result, false)
+      if successful?(result) && msg !~ /There are no valid services available/
         reply_details = result.rateReplyDetails
         if reply_details.respond_to?(:ratedShipmentDetails)
           price = extract_price.call(reply_details)
@@ -256,7 +257,6 @@ module Fedex #:nodoc:
           reply_details.inject({}) {|h,r| h[r.serviceType] = extract_price.call(r); h }
         end
       else
-        msg = error_msg(result)
         raise FedexError.new("Unable to retrieve price from Fedex: #{msg}")
       end
     end
@@ -373,14 +373,14 @@ module Fedex #:nodoc:
       
       successful = successful?(result)
       
-      if successful
+      msg = error_msg(result, false)
+      if successful && msg !~ /There are no valid services available/
         pre = result.completedShipmentDetail.shipmentRating.shipmentRateDetails
         charge = ((pre.class == Array ? pre[0].totalNetCharge.amount.to_f : pre.totalNetCharge.amount.to_f) * 100).to_i
         label = Base64.decode64(result.completedShipmentDetail.completedPackageDetails.label.parts.image)
         tracking_number = result.completedShipmentDetail.completedPackageDetails.trackingId.trackingNumber
         [charge, label, tracking_number]
       else
-        msg = error_msg(result)
         raise FedexError.new("Unable to get label from Fedex: #{msg}")
       end
     end
@@ -434,6 +434,7 @@ module Fedex #:nodoc:
       path = File.expand_path(DIR + '/' + WSDL_PATHS[name])
       wsdl = SOAP::WSDLDriverFactory.new(path)
       driver = wsdl.create_rpc_driver
+      # /s+(1000|0|9c9|fcc)\s+/ => ""
       driver.wiredump_dev = STDOUT if @debug
       
       driver
@@ -452,15 +453,15 @@ module Fedex #:nodoc:
     # Returns a boolean determining whether a request was successful.
     def successful?(result)
       if defined?(result.cancelPackageReply)
-        SUCCESSFUL_RESPONSES.detect{|r| r == result.cancelPackageReply.highestSeverity} ? true : false
+        SUCCESSFUL_RESPONSES.any? {|r| r == result.cancelPackageReply.highestSeverity }
       else
-        SUCCESSFUL_RESPONSES.detect{|r| r == result.highestSeverity} ? true : false
+        SUCCESSFUL_RESPONSES.any? {|r| r == result.highestSeverity }
       end
     end
     
     # Returns the error message contained in the SOAP response, if one exists.
-    def error_msg(result)
-      return "" if successful?(result)
+    def error_msg(result, return_nothing_if_successful=true)
+      return "" if successful?(result) && return_nothing_if_successful
       notes = result.notifications
       notes.respond_to?(:message) ? notes.message : notes.first.message
     end

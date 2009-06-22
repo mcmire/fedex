@@ -8,17 +8,23 @@ This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.c
 
 === Installation
 
-This plugin depends upon NaHi's[http://dev.ctor.org/soap4r/wiki/NaHi] excellent SOAP4R[http://dev.ctor.org/soap4r] library.  You can install the latest gem as follows:
+This plugin depends upon NaHi's[http://dev.ctor.org/soap4r/wiki/NaHi] excellent SOAP4R[http://dev.ctor.org/soap4r] library. Just add this line to <tt>config/environment.rb</tt>:
 
- $ gem install soap4r --source http://dev.ctor.org/download/
+  config.gem "soap4r", :lib => "soap/soap", :version => ">= 1.5.8"
+  
+and then run:
 
-Replace +install+ with +update+ if you've already installed SOAP4R.  Additional installation options are available on the SOAP4R site. Any version after 1.5.8-RC2 will do.
+  $ sudo rake gems:install
+  
+and then if you want to:
+
+  $ rake gems:unpack
 
 To install the plugin itself, simply navigate to your project directory and run:
 
-  ./script/plugin install git://github.com/mcmire/fedex.git
+  script/plugin install git://github.com/mcmire/fedex.git
 
-Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v5.wsdl</tt> as of 2/13/2009) and Ship (<tt>ShipService_v5.wsdl</tt> as of 2/13/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
+Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account, head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v5.wsdl</tt> as of 2/13/2009) and Ship (<tt>ShipService_v5.wsdl</tt> as of 2/13/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
 
 === Usage
 
@@ -26,24 +32,24 @@ Using the plugin is straightforward:
 
 Start out by defining constants to hold the authentication parameters.  To use Fedex Web Services you will need four pieces of information: Account Number, Authorization Key, Security Code, and Meter Number.  You will receive all four when you create your developer account. An ideal place to put these constants is in an initializer under <tt>config/initializers</tt>.
 
-  AUTH_KEY      = 'YOUR_AUTHORIZATION_KEY'
-  SECURITY_CODE = 'YOUR_SECURITY_CODE'
-  ACCOUNT       = 'YOUR_ACCOUNT_NUMBER'
-  METER_NUMBER  = 'YOUR_METER_NUMBER'
+  AUTH_KEY       = 'YOUR_AUTHORIZATION_KEY'
+  SECURITY_CODE  = 'YOUR_SECURITY_CODE'
+  ACCOUNT_NUMBER = 'YOUR_ACCOUNT_NUMBER'
+  METER_NUMBER   = 'YOUR_METER_NUMBER'
 
 Before you can get a rate or create a label, you must first create a Fedex object. Here you pass in the constants you just created, along with any other options that apply (see <tt>lib/fedex.rb</tt>).
 
   fedex = Fedex::Base.new(
     :auth_key => AUTH_KEY,
     :security_code => SECURITY_CODE,
-    :account_number => ACCOUNT,
+    :account_number => ACCOUNT_NUMBER,
     :meter_number => METER_NUMBER
   )
 
 Note that leaving out one or more required pieces of information for any method will result in an exception being thrown:
 
- > fedex = Fedex::Base.new
- Fedex::MissingInformationError: Missing :auth_key, :security_code, :account_number, :meter_number
+  > fedex = Fedex::Base.new
+  Fedex::MissingInformationError: Missing :auth_key, :security_code, :account_number, :meter_number
          from ./lib/fedex.rb:204:in `check_required_options'
          from ./lib/fedex.rb:37:in `initialize'
  
@@ -51,53 +57,63 @@ For the purpose of demonstration we're using the PDF label type, which is the de
 
 Now let's get a Rate quote.  Define your origin, destination, number of packages, total weight, and shipping method.
 
- shipper       = {:name => "Your Name",
-                  :phone_number => '5205551212'}
-
- recipient     = {:name => "Fedex",
-                  :phone_number => '9013693600'}
-
- origin        = {:country     => 'US',
-                  :street      => '80 E. Rio Salado Pkwy. #711', # Off Madison Ave
-                  :city        => 'Tempe',
-                  :state       => 'AZ',
-                  :zip         => '85281'}
-
- destination   = {:country     => 'US',
-                  :street      => '942 South Shady Grove Road',  # Fedex
-                  :city        => 'Memphis',
-                  :state       => 'TN',
-                  :zip         => '38120',
-                  :residential => false}
-
- pkg_count     = 1
- weight        = 10
- service_type  = Fedex::ServiceTypes::STANDARD_OVERNIGHT
+  shipper = {
+    :name => "Your Name",
+    :phone_number => '5205551212'
+  }
+  recipient = {
+    :name => "Fedex",
+    :phone_number => '9013693600'
+  }
+  origin = {
+    :street => '80 E. Rio Salado Pkwy. #711', # Off Madison Ave
+    :city => 'Tempe',
+    :state => 'AZ',
+    :zip => '85281',
+    :country => 'US'
+  }
+  destination = {
+    :street => '942 South Shady Grove Road',  # Fedex
+    :city => 'Memphis',
+    :state => 'TN',
+    :zip => '38120',
+    :country => 'US',
+    :residential => false
+  }
+  pkg_count = 1
+  weight = 10
+  service_type = Fedex::ServiceTypes::STANDARD_OVERNIGHT
 
 Pass these to your Fedex object:
 
- price = fedex.price(:shipper      => {:contact=>shipper,   :address=>origin},
-                     :recipient    => {:contact=>recipient, :address=>destination},
-                     :count        => pkg_count,
-                     :weight       => weight,
-                     :service_type => service_type)
-
- > puts price
- 8644
+  price = fedex.price(
+    :shipper => { :contact => shipper, :address => origin },
+    :recipient => { :contact => recipient, :address => destination },
+    :count => pkg_count,
+    :weight => weight,
+    :service_type => service_type
+  )
+  price #=> 8644
 
 Note that rate quotes are returned as whole integers in cents (so the charge in this case is $86.44).
 
 Shipping is just as easy:
  
- price, label, tracking_number = fedex.label(:shipper      => {:contact=>shipper,   :address=>origin},
-                                             :recipient    => {:contact=>recipient, :address=>destination},
-                                             :count        => pkg_count,
-                                             :weight       => weight,
-                                             :service_type => service_type)
+  price, label, tracking_number = fedex.label(
+    :shipper => { :contact => shipper, :address => origin },
+    :recipient => { :contact => recipient, :address => destination },
+    :count => pkg_count,
+    :weight => weight,
+    :service_type => service_type
+  )
 
 If everything goes well, +price+, +label+, and +tracking_number+ will all be populated accordingly.  +label+ is the Base64-decoded label as returned from Fedex.  By default the Fedex plugin requests the label to be returned as a PDF file suitable for laser printing.  Store this in a <tt>:binary</tt> column in your database, or write it out to a file.
 
-And that's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.  If you encounter any bugs, please email me at elliot.winkler [at] gmail [dot] com.
+And that's it!  There are quite a few additional configuration options which you can find by looking in the documentation in the source code itself, but this should be enough to get you started.
+
+=== Support
+
+I (Elliot) use this plugin at work and right now we are only using the 'price' feature of this plugin. However, I realize that other people may be using the other features. If you encounter any bugs while using this, I am happy to fix the plugin for you; however, I rely on you to give me as much information as possible to do so. You can report an issue using the 'Issues' tab in Github[http://github.com/mcmire/fedex]. Or if you feel like making a patch yourself, great -- just send me a pull request and I'll incorporate it. You can also send me an email at elliot.winkler [at] gmail [dot] com.
 
 === Author/Contributors
 
