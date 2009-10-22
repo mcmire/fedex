@@ -4,7 +4,7 @@
 
 This Rails[http://www.rubyonrails.org] plugin will enable you to integrate with Fedex's Web Services platform for the purpose of obtaining shipping rate quotes, generating shipping labels, and cancelling shipments.  Web Services is Fedex's new web service platform that replaces Web Integration. It is quite robust. The plugin we're providing here attempts to make using this new system as simple as you've come to expect from Rails itself.  It does not implement Web Services in its entirety, but it provides the two core services (Rate and Ship) most applicable to e-commerce.
 
-This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.com/ruby-on-rails/fedex/] that has been updated to be compatible with the latest version (v5 as of 2/13/2009) of the Fedex API.
+This is a fork of {Mighty Interactive's Fedex plugin}[http://mightyinteractive.com/ruby-on-rails/fedex/] that has been updated to be compatible with the latest version (v7 as of 10/22/2009) of the Fedex API.
 
 === Installation
 
@@ -24,7 +24,7 @@ To install the plugin itself, simply navigate to your project directory and run:
 
   script/plugin install git://github.com/mcmire/fedex.git
 
-Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account, head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v5.wsdl</tt> as of 2/13/2009) and Ship (<tt>ShipService_v5.wsdl</tt> as of 2/13/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
+Due to copyright reasons we cannot distribute the associated WSDL files; you will need to apply for a {developer account}[http://www.fedex.com/developer] with Fedex to begin working on your integration.  Once you've created your account, head to the "Get Started" section, where you can find documentation and the individual WSDLs for all of the available services.  For our purposes you need only two: Rate (<tt>RateService_v7.wsdl</tt> as of 10/22/2009) and Ship (<tt>ShipService_v7.wsdl</tt> as of 10/22/2009). Download these WSDLs and put them in the <tt>vendor/plugins/fedex/lib/wsdl/</tt> directory.
 
 == Usage
 
