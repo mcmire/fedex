@@ -1,0 +1,4 @@
+# We do this because the newer versions of the Fedex API are secured using a chained certificate
+# This just tells SSL not to verify the certificate
+# See http://stackoverflow.com/questions/1555006/how-do-i-tell-rubys-openssl-library-to-ignore-a-self-signed-certificate-error
+client.protocol.http.ssl_config.verify_mode = OpenSSL::SSL::VERIFY_NONE
